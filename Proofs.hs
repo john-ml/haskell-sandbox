@@ -8,6 +8,7 @@
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE TypeInType #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -41,6 +42,9 @@ type Not a = a -> False
 type (/\) = And
 type (\/) = Or
 type a <-> b = (a -> b) /\ (b -> a)
+
+data Exists f where
+  Ex_intro :: f a -> Exists f
 
 excluded_middle :: forall a. a \/ Not a
 excluded_middle = excluded_middle
@@ -264,3 +268,39 @@ mul_assoc (S' a) b c =
   trans (mul_add_distr_r b (a * b) c).
   add_sub_r (a * b * c) (a * (b * c)) (b * c).
   mul_assoc a b c
+
+-- parity
+
+data Even a where
+  EvenO :: Even O
+  EvenSS :: forall a. Even a -> Even (S (S a))
+
+data Odd a where
+  OddSO :: Odd (S O)
+  OddSS :: forall a. Odd a -> Odd (S (S a))
+
+exists_even :: Exists Even
+exists_even = Ex_intro EvenO
+
+exists_odd :: Exists Odd
+exists_odd = Ex_intro OddSO
+
+even_S_odd :: forall a. Nat' a -> Even a -> Odd (S a)
+even_S_odd _ EvenO = OddSO
+even_S_odd (S' (S' a)) (EvenSS even_a) = OddSS. even_S_odd a even_a
+
+odd_S_even :: forall a. Nat' a -> Odd a -> Even (S a)
+odd_S_even _ OddSO = EvenSS EvenO
+odd_S_even (S' (S' a)) (OddSS odd_a) = EvenSS. odd_S_even a odd_a
+
+even_add_even_odd :: forall a b. Nat' a -> Nat' b -> Even a -> Even b -> Even (a + b)
+even_add_even_odd _ _ EvenO even_b = even_b
+even_add_even_odd (S' (S' a)) b (EvenSS even_a) even_b =
+  EvenSS.
+  even_add_even_odd a b even_a even_b
+
+odd_add_odd_even :: forall a b. Nat' a -> Nat' b -> Odd a -> Odd b -> Even (a + b)
+odd_add_odd_even _ b OddSO odd_b = odd_S_even b odd_b
+odd_add_odd_even (S' (S' a)) b (OddSS odd_a) odd_b =
+  EvenSS.
+  odd_add_odd_even a b odd_a odd_b
