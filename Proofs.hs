@@ -147,11 +147,20 @@ trans Refl Refl = Refl
 f_eq :: forall f a b. a == b -> f a == f b
 f_eq Refl = Refl
 
+f_sub :: forall f a b. a == b -> f a -> f b
+f_sub Refl f = f
+
 f2_eq1 :: forall f a b c. a == b -> f a c == f b c
 f2_eq1 Refl = Refl
 
-f2_eq2 :: forall f a b c. a == b -> f a c == f b c
+f2_eq2 :: forall f a b c. a == b -> f c a == f c b
 f2_eq2 Refl = Refl
+
+f2_sub1 :: forall f a b c. a == b -> f a c -> f b c
+f2_sub1 Refl f = f
+
+f2_sub2 :: forall f a b c. a == b -> f c a -> f c b
+f2_sub2 Refl f = f
 
 -- arithmetic
 
@@ -176,9 +185,9 @@ add_sub_l _ _ _ Refl = Refl
 add_sub_r :: forall c a b. Nat' a -> Nat' b -> Nat' c -> a == b -> c + a == c + b
 add_sub_r _ _ _ Refl = Refl
 
-add_split :: forall a b c d.
-  Nat' a -> Nat' b -> Nat' c -> Nat' d ->
-  a == b -> c == d ->
+add_split :: forall a b c d.  Nat' a -> Nat' b -> Nat' c -> Nat' d ->
+  a == b ->
+  c == d ->
   a + c == b + d
 add_split _ _ _ _ Refl Refl = Refl
 
@@ -293,14 +302,28 @@ odd_S_even :: forall a. Nat' a -> Odd a -> Even (S a)
 odd_S_even _ OddSO = EvenSS EvenO
 odd_S_even (S' (S' a)) (OddSS odd_a) = EvenSS. odd_S_even a odd_a
 
-even_add_even_odd :: forall a b. Nat' a -> Nat' b -> Even a -> Even b -> Even (a + b)
-even_add_even_odd _ _ EvenO even_b = even_b
-even_add_even_odd (S' (S' a)) b (EvenSS even_a) even_b =
-  EvenSS.
-  even_add_even_odd a b even_a even_b
+double_even :: forall a. Nat' a -> Even (a + a)
+double_even O' = EvenO
+double_even (S' a) =
+  flip (f_sub @Even) (EvenSS. double_even a).
+  f_eq @S. sym. add_S_r a a
+
+even_add_even_even :: forall a b. Nat' a -> Nat' b -> Even a -> Even b -> Even (a + b)
+even_add_even_even _ _ EvenO even_b = even_b
+even_add_even_even (S' (S' a)) b (EvenSS even_a) even_b =
+  EvenSS. even_add_even_even a b even_a even_b
 
 odd_add_odd_even :: forall a b. Nat' a -> Nat' b -> Odd a -> Odd b -> Even (a + b)
 odd_add_odd_even _ b OddSO odd_b = odd_S_even b odd_b
 odd_add_odd_even (S' (S' a)) b (OddSS odd_a) odd_b =
-  EvenSS.
-  odd_add_odd_even a b odd_a odd_b
+  EvenSS. odd_add_odd_even a b odd_a odd_b
+
+even_mul_l :: forall a b. Nat' a -> Nat' b -> Even a -> Even (a * b)
+even_mul_l _ _ EvenO = EvenO
+even_mul_l (S' (S' a)) b (EvenSS even_a) =
+  f_sub @Even (sym. add_assoc b b (a * b)).
+  even_add_even_even (b + b) (a * b) (double_even b).
+  even_mul_l a b even_a
+
+even_mul_r :: forall a b. Nat' a -> Nat' b -> Even b -> Even (a * b)
+even_mul_r a b even_b = f_sub @Even (mul_comm b a). even_mul_l b a even_b
